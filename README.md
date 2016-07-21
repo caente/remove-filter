@@ -10,4 +10,4 @@ val felix:Cat = Cat("Felix", 1)
 assert( felix.removeField('name) == 1 :: HNil)
 ```
 
-this turned out to be impossible, so I wrote this instead https://github.com/caente/equals-except
+this turned out to be impossible, so I wrote this instead https://github.com/caente/equals-except since that was what I needed...
