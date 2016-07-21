@@ -3,59 +3,69 @@ object removeField {
 
   import labelled._
   import ops.record._
+  import ops.hlist.Prepend
 
   trait RemoveField[T] {
-    def removeField(t: T, other:Symbol): HList
+    type Out <: HList
+    def removeField(t: T, field:Witness): Out
   }
 
   object RemoveField {
-    
-    implicit def generic[F, G](implicit gen: LabelledGeneric.Aux[F, G], sg: Lazy[RemoveField[G]]): RemoveField[F] =
+    type Aux[T, R <: HList] = RemoveField[T]{type Out = R}
+
+    implicit def generic[F, G, R <: HList](implicit gen: LabelledGeneric.Aux[F, G], sg: Lazy[RemoveField.Aux[G, R]]): RemoveField.Aux[F,R] =
       new RemoveField[F] {
-        def removeField(f: F, other:Symbol) = sg.value.removeField(gen.to(f), other)
+        type Out = R
+        def removeField(f: F, field:Witness) = sg.value.removeField(gen.to(f), field)
       }
 
-    implicit def product: RemoveField[HNil] =
+    implicit def product: RemoveField.Aux[HNil, HNil] =
       new RemoveField[HNil] {
-        def removeField(p: HNil, other:Symbol): HList = HNil
+        type Out = HNil
+        def removeField(p: HNil, field:Witness) = HNil
       }
 
-    implicit def product[K <: Symbol, V, T <: HList]
+      implicit def product[K <: Symbol, V, T <: HList, RV <: HList, RT <: HList, R <: HList]
       (implicit
         key: Witness.Aux[K],
         selector: Selector.Aux[FieldType[K, V] :: T, K, Symbol],
-        sv: Lazy[RemoveField[V]],
-        st: Lazy[RemoveField[T]]
-      ): RemoveField[FieldType[K, V] :: T] =
+        sv: Lazy[RemoveField.Aux[V, RV]],
+        st: Lazy[RemoveField.Aux[T,RT]],
+        prepend: Prepend.Aux[RV, RT, R]
+      ): RemoveField.Aux[FieldType[K, V] :: T, R] =
         new RemoveField[FieldType[K, V] :: T] {
-          def removeField(p: FieldType[K, V] :: T, other:Symbol): HList = {
-        if (selector(p) == other) sv.value.removeField(p.head, other)
-        else p.head :: st.value.removeField(p.tail, other)
+          type Out =  R
+          def removeField(p: FieldType[K, V] :: T, field:Witness) = {
+            if (selector(p) == selector(p)) sv.value.removeField(p.head, field)
+            else p.head :: st.value.removeField(p.tail, field)
           }
         }
 
-    implicit def cnil: RemoveField[CNil] =
+        implicit def cnil: RemoveField.Aux[CNil, HNil] =
       new RemoveField[CNil] {
-        def removeField(p: CNil, other:Symbol) = HNil
+        type Out = HNil
+        def removeField(p: CNil, field:Witness) = HNil
       }
 
-    implicit def coproduct[K <: Symbol, V, T <: Coproduct]
+    implicit def coproduct[K <: Symbol, V, T <: Coproduct, RV <: HList, RT <: HList, R <: HList]
       (implicit
         key: Witness.Aux[K],
-        sv: Lazy[RemoveField[V]],
-        st: Lazy[RemoveField[T]]
-      ): RemoveField[FieldType[K, V] :+: T] =
+        sv: Lazy[RemoveField.Aux[V, RV]],
+        st: Lazy[RemoveField.Aux[T, RT]],
+        prepend: Prepend.Aux[RV, RT, R]
+      ): RemoveField.Aux[FieldType[K, V] :+: T, R] =
         new RemoveField[FieldType[K, V] :+: T] {
-          def removeField(c: FieldType[K, V] :+: T, other:Symbol): HList =
+          type Out = R
+          def removeField(c: FieldType[K, V] :+: T, field:Witness): HList =
             c match {
-              case Inl( head ) => sv.value.removeField(head, other )
-              case Inr( tail ) => st.value.removeField(tail, other )
+              case Inl( head ) => sv.value.removeField(head, field )
+              case Inr( tail ) => st.value.removeField(tail, field )
             }
         }
   }
 
   implicit class RemoveFieldOps[T](x: T)(implicit removeFieldT: RemoveField[T]) {
-    def removeField(other:Symbol): HList = removeFieldT.removeField(x, other)
+    def removeField(field:Witness): HList = removeFieldT.removeField(x, field)
   }
 
   sealed trait Animal
