@@ -5,6 +5,7 @@ libraryDependencies ++= Seq(
 )
 
 
+
 scalacOptions := Seq(
   "-feature",
   "-language:higherKinds",
